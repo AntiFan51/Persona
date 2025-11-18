@@ -1,0 +1,36 @@
+# IDE
+.idea/
+.gradle/
+build/
+*.iml
+
+# Local configuration
+local.properties
+
+# Log files
+*.log
+
+# Keystore files
+*.jks
+*.keystore
+
+# APK files
+*.apk
+*.aab
+
+# Outputs
+/captures/
+
+# Google Services
+google-services.json
+
+# Navigation
+.navigation/
+
+# Lint
+lint/reports/
+lint/intermediates/
+lint/generated/
+
+# Profiler
+*.hprof
