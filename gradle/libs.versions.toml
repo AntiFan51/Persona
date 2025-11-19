@@ -15,6 +15,8 @@ kotlinxSerialization = "1.6.3"
 retrofitSerializationConverter = "1.0.0"
 coroutines = "1.8.0"
 coil = "2.6.0"
+navigationCompose = "2.7.7"
+hiltNavigationCompose = "1.2.0"
 
 [libraries]
 # AndroidX 默认依赖
@@ -46,3 +48,5 @@ retrofit-kotlinx-serialization-converter = { group = "com.jakewharton.retrofit",
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
