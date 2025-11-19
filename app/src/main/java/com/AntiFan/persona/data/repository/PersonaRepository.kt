@@ -21,4 +21,9 @@ class PersonaRepository @Inject constructor() {
     fun getAllPersonas(): List<Persona> {
         return MockData.personas
     }
+
+    fun addPersona(persona: Persona) {
+        // 插入到列表的最前面 (索引 0)，这样用户刚建好就能立刻看到
+        MockData.personas.add(0, persona)
+    }
 }

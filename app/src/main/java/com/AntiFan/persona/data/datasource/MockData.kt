@@ -7,7 +7,7 @@ import java.util.UUID
 
 object MockData {
 
-    val personas = listOf(
+    val personas = mutableListOf(
         Persona(
             id = UUID.randomUUID().toString(),
             name = "艾拉 (Elara)",

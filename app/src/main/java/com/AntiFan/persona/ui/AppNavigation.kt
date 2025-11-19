@@ -13,6 +13,8 @@ object AppDestinations {
     const val PERSONA_LIST = "persona_list"
     const val PERSONA_DETAIL = "persona_detail"
     const val PERSONA_ID_KEY = "personaId" // 定义参数名为常量
+
+    const val PERSONA_CREATE = "persona_create"
 }
 
 @Composable
@@ -32,6 +34,12 @@ fun AppNavigation() {
         // 2. 详情页路由
         // 路由格式: "persona_detail/{personaId}"
         // ... 前面的代码不变 ...
+
+        // [New] 新增：创作页路由
+        composable(route = AppDestinations.PERSONA_CREATE) {
+            // 这里需要导入我们刚刚写的 PersonaCreateScreen
+            com.AntiFan.persona.ui.screens.create.PersonaCreateScreen(navController = navController)
+        }
 
         composable(
             route = "${AppDestinations.PERSONA_DETAIL}/{${AppDestinations.PERSONA_ID_KEY}}",
