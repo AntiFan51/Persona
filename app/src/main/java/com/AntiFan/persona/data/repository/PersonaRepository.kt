@@ -38,4 +38,13 @@ class PersonaRepository @Inject constructor(
     override suspend fun publishPost(post: Post) {
         postDao.insertPost(post)
     }
+
+    override suspend fun toggleFollow(personaId: String, isFollowed: Boolean) {
+        personaDao.updateFollowStatus(personaId, isFollowed)
+    }
+
+    override suspend fun toggleLike(postId: String, isLiked: Boolean) {
+        val delta = if (isLiked) 1 else -1
+        postDao.updateLikeStatus(postId, isLiked, delta)
+    }
 }

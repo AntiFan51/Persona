@@ -108,4 +108,51 @@ class SocialViewModel @Inject constructor(
             }
         }
     }
+    fun toggleLike(post: Post) {
+        val newIsLiked = !post.isLiked
+        val newCount = if (newIsLiked) post.likeCount + 1 else post.likeCount - 1
+
+        // 1. 【乐观更新】直接修改内存里的列表，让 UI 瞬间刷新
+        _feed.value = _feed.value.map { item ->
+            if (item.post.id == post.id) {
+                // 使用 copy 创建新对象，Compose 才能监测到变化
+                item.copy(post = item.post.copy(isLiked = newIsLiked, likeCount = newCount))
+            } else {
+                item
+            }
+        }
+
+        // 2. 【异步操作】在后台默默更新数据库
+        viewModelScope.launch {
+            try {
+                repository.toggleLike(post.id, newIsLiked)
+            } catch (e: Exception) {
+                // 如果失败了（极少发生），这里应该回滚 UI，暂略
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * ✅ 极致体验：关注
+     */
+    fun toggleFollow(authorId: String, currentFollowStatus: Boolean) {
+        val newStatus = !currentFollowStatus
+
+        // 1. 【乐观更新】
+        _feed.value = _feed.value.map { item ->
+            if (item.post.authorId == authorId) {
+                // 如果是同一个人发的帖子，关注状态都要变
+                item.copy(authorIsFollowed = newStatus)
+            } else {
+                item
+            }
+        }
+
+        // 2. 【异步操作】
+        viewModelScope.launch {
+            repository.toggleFollow(authorId, newStatus)
+        }
+    }
+
 }

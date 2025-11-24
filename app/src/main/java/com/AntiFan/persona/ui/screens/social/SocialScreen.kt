@@ -1,12 +1,14 @@
 package com.AntiFan.persona.ui.screens.social
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,22 +38,19 @@ fun SocialScreen(
     val feed by viewModel.feed.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // ✅ 关键逻辑：每次进入页面，都自动刷新列表
-    // 这样你在详情页发完贴回来，这里就能立刻看到
+    // 每次进入页面自动刷新数据
     LaunchedEffect(Unit) {
         viewModel.loadFeed()
     }
 
-    Scaffold(
-        // 这里不需要 FloatingActionButton 了，因为发帖入口在详情页
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Box(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5)) // 浅灰背景，突出卡片
+                .background(Color(0xFFF5F5F5)) // 浅灰背景
         ) {
-            // 空状态提示
+            // 空状态
             if (feed.isEmpty() && !isLoading) {
                 Text(
                     text = "广场空空如也，去详情页让角色发个动态吧！",
@@ -60,13 +59,18 @@ fun SocialScreen(
                 )
             }
 
-            // 列表显示
+            // 列表
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(feed) { item ->
-                    PostItem(item)
+                    PostItem(
+                        item = item,
+                        // ✅ 绑定 ViewModel 的交互逻辑
+                        onLikeClick = { viewModel.toggleLike(item.post) },
+                        onFollowClick = { viewModel.toggleFollow(item.post.authorId, item.authorIsFollowed) }
+                    )
                 }
             }
         }
@@ -74,17 +78,22 @@ fun SocialScreen(
 }
 
 /**
- * 单条动态的卡片样式
+ * 带有交互功能的动态卡片
  */
 @Composable
-fun PostItem(item: PostWithAuthor) {
+fun PostItem(
+    item: PostWithAuthor,
+    onLikeClick: () -> Unit,
+    onFollowClick: () -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // 1. 头部：头像 + 名字 + 时间
+            // --- 1. 头部区域 ---
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 头像
                 AsyncImage(
                     model = item.authorAvatar,
                     contentDescription = null,
@@ -93,7 +102,10 @@ fun PostItem(item: PostWithAuthor) {
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
+
+                // 名字与时间
                 Column {
                     Text(
                         text = item.authorName,
@@ -106,11 +118,22 @@ fun PostItem(item: PostWithAuthor) {
                         fontSize = 12.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.weight(1f)) // 撑开空间，把关注按钮挤到右边
+
+                // ✅ 关注按钮
+                TextButton(onClick = onFollowClick) {
+                    Text(
+                        text = if (item.authorIsFollowed) "已关注" else "+ 关注",
+                        color = if (item.authorIsFollowed) Color.Gray else MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. 内容文本
+            // --- 2. 内容区域 ---
             Text(
                 text = item.post.content,
                 style = MaterialTheme.typography.bodyLarge,
@@ -119,12 +142,20 @@ fun PostItem(item: PostWithAuthor) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 3. 底部：点赞数
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // --- 3. 底部互动区域 ---
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { onLikeClick() } // 点击触发点赞
+                    .padding(4.dp) // 增加点击热区
+            ) {
+                // 图标切换：实心爱心 vs 空心爱心
                 Icon(
-                    Icons.Default.Favorite,
+                    imageVector = if (item.post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = null,
-                    tint = Color(0xFFFF5252), // 红色爱心
+                    // 颜色切换：红色 vs 灰色
+                    tint = if (item.post.isLiked) Color(0xFFFF5252) else Color.Gray,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
