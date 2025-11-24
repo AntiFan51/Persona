@@ -20,10 +20,13 @@ fun PersonaCreateScreen(
     navController: NavController,
     viewModel: PersonaCreateViewModel = hiltViewModel()
 ) {
-    // 收集 ViewModel 中的状态
+    // 1. 收集 ViewModel 中的状态
     val name by viewModel.name.collectAsState()
-    val personality by viewModel.personality.collectAsState()
+    val personality by viewModel.personality.collectAsState() // 这里其实是 keywords
     val backstory by viewModel.backstory.collectAsState()
+
+    // 2. 收集加载状态 (新增)
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -37,18 +40,17 @@ fun PersonaCreateScreen(
             )
         }
     ) { paddingValues ->
-        // 使用 Column 垂直排列表单项
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp) // 标准的水平边距 16dp
-                .verticalScroll(rememberScrollState()), // 允许滚动
-            verticalArrangement = Arrangement.spacedBy(24.dp) // 统一的大间距 24dp，让表单不拥挤
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 1. 基础信息板块
+            // 基础信息
             Text(
                 text = "基础设定",
                 style = MaterialTheme.typography.titleMedium,
@@ -64,54 +66,71 @@ fun PersonaCreateScreen(
                 singleLine = true
             )
 
-            // 2. 详细设定板块
+            // 详细设定
             Text(
                 text = "灵魂注入",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
 
+            // 提示用户输入关键词
             OutlinedTextField(
                 value = personality,
                 onValueChange = viewModel::onPersonalityChange,
                 label = { Text("性格关键词") },
-                placeholder = { Text("例如：傲娇、赛博朋克、爱吃甜食...") },
+                placeholder = { Text("例如：傲娇、赛博朋克、侦探... (用于AI生成)") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2
             )
 
+            // 背景故事 (AI 生成的目标区域)
             OutlinedTextField(
                 value = backstory,
                 onValueChange = viewModel::onBackstoryChange,
                 label = { Text("背景故事") },
-                placeholder = { Text("他/她来自哪里？有什么不为人知的过去？") },
+                placeholder = { Text("点击下方按钮，AI 将为你自动撰写...") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 5
+                minLines = 8 // 稍微高一点，方便看生成的故事
             )
 
-            // 3. 操作按钮
-            // 这里的按钮我们暂时留空 AI 功能，稍后实现
+            // --- 核心按钮区域 ---
+
+            // 1. AI 生成按钮
             FilledTonalButton(
-                onClick = { /* TODO: AI Generate */ },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { viewModel.generatePersonaByAI() }, // 连接 ViewModel 函数
+                modifier = Modifier.fillMaxWidth(),
+                // 只有在没加载，且名字不为空时可用
+                enabled = !isLoading && name.isNotBlank()
             ) {
-                Text("✨ AI 一键生成设定 (开发中)")
+                if (isLoading) {
+                    // 加载时的 UI：转圈圈 + 文字
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("正在联络豆包大脑...")
+                } else {
+                    // 正常状态 UI
+                    Text("✨ AI 一键生成设定")
+                }
             }
 
+            // 2. 保存按钮
             Button(
                 onClick = {
                     viewModel.savePersona {
-                        navController.popBackStack() // 保存成功后返回列表
+                        navController.popBackStack()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                // 只有名字和性格都不为空时，按钮才可用，这是很好的交互细节
-                enabled = name.isNotBlank() && personality.isNotBlank()
+                enabled = !isLoading && name.isNotBlank()
             ) {
                 Text("完成并创建")
             }
 
-            Spacer(modifier = Modifier.height(32.dp)) // 底部留白
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

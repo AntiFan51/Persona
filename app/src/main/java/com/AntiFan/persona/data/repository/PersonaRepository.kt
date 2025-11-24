@@ -1,29 +1,26 @@
 package com.AntiFan.persona.data.repository
 
-import com.AntiFan.persona.data.datasource.MockData
+import com.AntiFan.persona.data.local.PersonaDao
 import com.AntiFan.persona.data.model.Persona
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Repository 负责管理数据来源。
- * 目前它从 MockData 获取数据，未来我们会在这里加入网络请求或数据库查询。
- */
-@Singleton // 告诉 Hilt，这个类在整个应用中只创建一个实例
-class PersonaRepository @Inject constructor() {
+@Singleton
+class PersonaRepository @Inject constructor(
+    private val dao: PersonaDao // 关键：这里注入了我们刚才定义的 DAO
+) : IPersonaRepository {
 
-    // 根据 ID 查找 Persona
-    fun getPersonaById(id: String): Persona? {
-        return MockData.personas.find { it.id == id }
+    override suspend fun getAllPersonas(): List<Persona> {
+        // 直接从数据库查
+        return dao.getAllPersonas()
     }
 
-    // 获取所有 Persona (给列表页用的，虽然目前列表页还没用 Repository，但我们可以预留)
-    fun getAllPersonas(): List<Persona> {
-        return MockData.personas
+    override suspend fun getPersonaById(id: String): Persona? {
+        return dao.getPersonaById(id)
     }
 
-    fun addPersona(persona: Persona) {
-        // 插入到列表的最前面 (索引 0)，这样用户刚建好就能立刻看到
-        MockData.personas.add(0, persona)
+    override suspend fun addPersona(persona: Persona) {
+        // 插入到数据库
+        dao.insertPersona(persona)
     }
 }
