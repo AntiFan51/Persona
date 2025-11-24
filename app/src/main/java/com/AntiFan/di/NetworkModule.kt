@@ -26,7 +26,7 @@ object NetworkModule {
     // --- 配置区 (请替换为你自己的) ---
     private const val BASE_URL = "https://ark.cn-beijing.volces.com/"
     const val API_KEY = "616e9bc6-178c-455d-8136-e35011b08f48"
-    const val ENDPOINT_ID = "ep-20251124112756-cvn8s"
+    const val ENDPOINT_ID = "ep-20251124150845-h8ltp"
     // ------------------------------
 
     @Provides
