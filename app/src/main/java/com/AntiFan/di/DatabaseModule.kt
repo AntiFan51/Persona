@@ -1,9 +1,10 @@
-package com.AntiFan.di
+package com.AntiFan.persona.di
 
 import android.content.Context
 import androidx.room.Room
 import com.AntiFan.persona.data.local.AppDatabase
 import com.AntiFan.persona.data.local.PersonaDao
+import com.AntiFan.persona.data.local.PostDao // 👈 记得导入
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,20 +16,26 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    // 1. 提供数据库实例
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "persona_db" // 数据库文件的名字
-        ).build()
+            "persona_db"
+        )
+            .fallbackToDestructiveMigration() // 👈 建议加上这句：版本冲突时自动清空数据重建，防止开发时崩坏
+            .build()
     }
 
-    // 2. 提供 DAO 实例 (这样 Repository 就可以直接注入 DAO 了)
     @Provides
     fun providePersonaDao(database: AppDatabase): PersonaDao {
         return database.personaDao()
+    }
+
+    // ✅ 新增：提供 PostDao
+    @Provides
+    fun providePostDao(database: AppDatabase): PostDao {
+        return database.postDao()
     }
 }
