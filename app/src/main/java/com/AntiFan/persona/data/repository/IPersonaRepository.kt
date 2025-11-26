@@ -5,15 +5,19 @@ import com.AntiFan.persona.data.model.Post
 import com.AntiFan.persona.data.model.PostWithAuthor
 
 interface IPersonaRepository {
-    // 原有的 Persona 相关
+    // --- 角色基础操作 ---
     suspend fun getAllPersonas(): List<Persona>
     suspend fun getPersonaById(id: String): Persona?
     suspend fun addPersona(persona: Persona)
 
-    // ✅ 新增：社交广场相关
-    suspend fun getSocialFeed(): List<PostWithAuthor> // 获取所有动态
-    suspend fun publishPost(post: Post)               // 发布一条动态
-
+    // --- 社交操作 ---
     suspend fun toggleFollow(personaId: String, isFollowed: Boolean)
     suspend fun toggleLike(postId: String, isLiked: Boolean)
+
+    // --- 广场内容 ---
+    suspend fun getSocialFeed(): List<PostWithAuthor>
+    suspend fun publishPost(post: Post)
+
+    // ✅ 新增：更新角色设定 (共生进化)
+    suspend fun updatePersonaDetails(id: String, personality: String, backstory: String)
 }

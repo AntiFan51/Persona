@@ -11,7 +11,7 @@ import javax.inject.Singleton
 @Singleton
 class PersonaRepository @Inject constructor(
     private val personaDao: PersonaDao,
-    private val postDao: PostDao // 👈 1. 注入 PostDao
+    private val postDao: PostDao
 ) : IPersonaRepository {
 
     // --- Persona 部分 ---
@@ -27,18 +27,11 @@ class PersonaRepository @Inject constructor(
         personaDao.insertPersona(persona)
     }
 
-    // --- 社交广场部分 ---
-
-    // 2. 获取广场列表
-    override suspend fun getSocialFeed(): List<PostWithAuthor> {
-        return postDao.getAllPosts()
+    override suspend fun updatePersonaDetails(id: String, personality: String, backstory: String) {
+        personaDao.updatePersonaDetails(id, personality, backstory)
     }
 
-    // 3. 发布帖子
-    override suspend fun publishPost(post: Post) {
-        postDao.insertPost(post)
-    }
-
+    // --- 互动部分 ---
     override suspend fun toggleFollow(personaId: String, isFollowed: Boolean) {
         personaDao.updateFollowStatus(personaId, isFollowed)
     }
@@ -46,5 +39,14 @@ class PersonaRepository @Inject constructor(
     override suspend fun toggleLike(postId: String, isLiked: Boolean) {
         val delta = if (isLiked) 1 else -1
         postDao.updateLikeStatus(postId, isLiked, delta)
+    }
+
+    // --- 社交广场部分 ---
+    override suspend fun getSocialFeed(): List<PostWithAuthor> {
+        return postDao.getAllPosts()
+    }
+
+    override suspend fun publishPost(post: Post) {
+        postDao.insertPost(post)
     }
 }

@@ -53,6 +53,11 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        kotlinOptions {
+            freeCompilerArgs += "-opt-in=kotlinx.serialization.ExperimentalSerializationApi"
+        }
+    }
 }
 
 dependencies {
@@ -88,6 +93,11 @@ dependencies {
     // dependencies 块中
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
+
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion") // 支持协程
+    kapt("androidx.room:room-compiler:$roomVersion")      // 注解处理器
 }
 
 // Kapt 配置，用于 Hilt
