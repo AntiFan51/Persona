@@ -1,18 +1,30 @@
 package com.AntiFan.persona.ui.screens.create
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,21 +32,23 @@ fun PersonaCreateScreen(
     navController: NavController,
     viewModel: PersonaCreateViewModel = hiltViewModel()
 ) {
-    // 1. 收集 ViewModel 中的状态
     val name by viewModel.name.collectAsState()
-    val personality by viewModel.personality.collectAsState() // 这里其实是 keywords
+    val personality by viewModel.personality.collectAsState()
     val backstory by viewModel.backstory.collectAsState()
 
-    // 2. 收集加载状态 (新增)
+    // 监听头像 URL
+    val avatarPath by viewModel.avatarPath.collectAsState()
+
     val isLoading by viewModel.isLoading.collectAsState()
+    val statusMessage by viewModel.statusMessage.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("创建角色") },
+                title = { Text("创建新角色") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -42,95 +56,116 @@ fun PersonaCreateScreen(
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(16.dp)
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            // --- 1. 头像预览区域 ---
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 8.dp)
+            ) {
+                if (avatarPath.isNotBlank()) {
+                    // 直接显示 URL
+                    AsyncImage(
+                        model = avatarPath,
+                        contentDescription = "AI Avatar",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // 默认占位符
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("头像", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
 
-            // 基础信息
-            Text(
-                text = "基础设定",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(48.dp), strokeWidth = 4.dp)
+                }
+            }
 
+            // 状态提示
+            if (statusMessage.isNotBlank()) {
+                Text(
+                    text = statusMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            // --- 2. 名字输入 ---
             OutlinedTextField(
                 value = name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("名字") },
-                placeholder = { Text("给你的 Persona 起个名字") },
+                label = { Text("名字 (必填)") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
 
-            // 详细设定
-            Text(
-                text = "灵魂注入",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
+            // --- 3. AI 生成按钮 ---
+            Button(
+                onClick = { viewModel.generatePersonaByAI() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading && name.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+            ) {
+                if (isLoading) {
+                    Text("AI 正在创作中...")
+                } else {
+                    Icon(Icons.Default.Star, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("AI 生成设定 & 绘制头像")
+                }
+            }
 
-            // 提示用户输入关键词
+            // 分割线
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // --- 4. 性格 & 背景 ---
             OutlinedTextField(
                 value = personality,
                 onValueChange = viewModel::onPersonalityChange,
-                label = { Text("性格关键词") },
-                placeholder = { Text("例如：傲娇、赛博朋克、侦探... (用于AI生成)") },
+                label = { Text("性格 / 关键词") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 2
+                minLines = 2,
+                maxLines = 3
             )
 
-            // 背景故事 (AI 生成的目标区域)
             OutlinedTextField(
                 value = backstory,
                 onValueChange = viewModel::onBackstoryChange,
                 label = { Text("背景故事") },
-                placeholder = { Text("点击下方按钮，AI 将为你自动撰写...") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 8 // 稍微高一点，方便看生成的故事
+                modifier = Modifier.fillMaxWidth().height(150.dp)
             )
 
-            // --- 核心按钮区域 ---
+            Spacer(modifier = Modifier.weight(1f))
 
-            // 1. AI 生成按钮
-            FilledTonalButton(
-                onClick = { viewModel.generatePersonaByAI() }, // 连接 ViewModel 函数
-                modifier = Modifier.fillMaxWidth(),
-                // 只有在没加载，且名字不为空时可用
-                enabled = !isLoading && name.isNotBlank()
-            ) {
-                if (isLoading) {
-                    // 加载时的 UI：转圈圈 + 文字
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("正在联络豆包大脑...")
-                } else {
-                    // 正常状态 UI
-                    Text("✨ AI 一键生成设定")
-                }
-            }
-
-            // 2. 保存按钮
+            // --- 5. 保存按钮 ---
             Button(
-                onClick = {
-                    viewModel.savePersona {
-                        navController.popBackStack()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading && name.isNotBlank()
+                onClick = { viewModel.savePersona { navController.popBackStack() } },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = !isLoading && name.isNotBlank() && personality.isNotBlank()
             ) {
-                Text("完成并创建")
+                Icon(Icons.Default.Check, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("创建角色")
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

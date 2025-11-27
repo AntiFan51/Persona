@@ -7,6 +7,7 @@ import com.AntiFan.persona.data.model.Persona
 import com.AntiFan.persona.data.network.VolcEngineApi
 import com.AntiFan.persona.data.network.model.ChatMessage
 import com.AntiFan.persona.data.network.model.ChatRequest
+import com.AntiFan.persona.data.network.model.ImageGenerationRequest
 import com.AntiFan.persona.data.repository.IPersonaRepository
 import com.AntiFan.persona.di.NetworkModule
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,112 +20,140 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PersonaCreateViewModel @Inject constructor(
-    private val repository: IPersonaRepository, // 依赖接口
-    private val api: VolcEngineApi // 注入网络接口
+    private val repository: IPersonaRepository,
+    private val api: VolcEngineApi
 ) : ViewModel() {
 
-    // 表单状态
     private val _name = MutableStateFlow("")
     val name: StateFlow<String> = _name.asStateFlow()
 
-    // 这里虽然叫 personality，但在 AI 生成场景下，它充当“关键词”的角色
     private val _personality = MutableStateFlow("")
     val personality: StateFlow<String> = _personality.asStateFlow()
 
     private val _backstory = MutableStateFlow("")
     val backstory: StateFlow<String> = _backstory.asStateFlow()
 
-    // 新增：加载状态，用于控制 UI 上的转圈圈
+    private val _avatarPath = MutableStateFlow("")
+    val avatarPath: StateFlow<String> = _avatarPath.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // 绑定输入框的回调函数
+    private val _statusMessage = MutableStateFlow("")
+    val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
+
     fun onNameChange(newValue: String) { _name.value = newValue }
     fun onPersonalityChange(newValue: String) { _personality.value = newValue }
     fun onBackstoryChange(newValue: String) { _backstory.value = newValue }
 
     /**
-     * 核心功能：调用 AI 生成设定
+     * 🚀 旗舰版生成 V3：JSON解析 + 中文生图
      */
     fun generatePersonaByAI() {
         val currentName = _name.value
-        // 如果没填名字，就不执行
         if (currentName.isBlank()) return
 
         viewModelScope.launch {
-            _isLoading.value = true // 开始加载
+            _isLoading.value = true
+            _statusMessage.value = "正在构思设定..."
             try {
-                // 1. 准备 Prompt (提示词)
-                // 我们把用户输入的 personality 当作关键词发给 AI
-                val keywords = _personality.value.ifBlank { "随机性格" }
+                val keywords = if (_personality.value.isEmpty()) "随机性格" else _personality.value
 
-                val prompt = """
-                    我正在创建一个虚拟角色，名字叫“$currentName”，关键词是“$keywords”。
-                    请帮我完善这个角色的设定。
-                    请直接返回两部分内容，中间用“|||”分隔：
-                    第一部分：简短的性格描述（50字以内）；
-                    第二部分：精彩的背景故事（100字左右）。
-                    例如：冷酷、高智商、黑客|||他出生在贫民窟，靠自学代码成为了顶尖黑客...
-                    请严格按照格式返回，不要包含其他废话。
+                // 1. 文本生成：要求返回 JSON 格式，且生图提示词用中文
+                val textPrompt = """
+                    任务：为虚拟角色“$currentName”生成设定（关键词：$keywords）。
+                    
+                    请直接返回一个标准的 JSON 格式内容，包含三个字段。
+                    不要包含 markdown 标记（如 ```json），不要包含编号（如 1. 2.）。
+                    
+                    {
+                        "personality": "这里填性格，简练，不要编号",
+                        "backstory": "这里填背景故事，100字左右",
+                        "image_prompt": "这里填用于生成头像的【中文】画面描述，描述外貌、五官、发型、光影、风格（如赛博朋克、二次元、写实）"
+                    }
                 """.trimIndent()
 
-                // 2. 构建请求对象
-                // 使用我们在 NetworkModule 里硬编码的 ENDPOINT_ID
-                val request = ChatRequest(
-                    model = NetworkModule.ENDPOINT_ID,
-                    messages = listOf(
-                        ChatMessage(role = "user", content = prompt)
+                val textResponse = api.chatCompletions(
+                    authorization = "Bearer ${NetworkModule.API_KEY}",
+                    request = ChatRequest(
+                        model = NetworkModule.ENDPOINT_ID,
+                        messages = listOf(ChatMessage(role = "user", content = textPrompt))
                     )
                 )
 
-                // 3. 发起网络请求
-                // 使用我们在 NetworkModule 里硬编码的 API_KEY
-                val response = api.chatCompletions(
-                    authorization = "Bearer ${NetworkModule.API_KEY}",
-                    request = request
-                )
+                var aiContent = textResponse.choices.firstOrNull()?.message?.content ?: ""
 
-                // 4. 解析结果
-                val aiContent = response.choices.firstOrNull()?.message?.content ?: ""
+                // 打印日志方便调试
+                Log.d("PersonaCreate", "AI返回内容: $aiContent")
 
-                // 5. 简单的文本处理 (根据 ||| 分割)
-                val parts = aiContent.split("|||")
-                if (parts.size >= 2) {
-                    _personality.value = parts[0].trim() // 填入性格
-                    _backstory.value = parts[1].trim()   // 填入背景
+                // 2. 强力解析：使用正则提取 JSON 字段，无视 AI 的乱加格式
+                val personality = extractJsonValue(aiContent, "personality")
+                val backstory = extractJsonValue(aiContent, "backstory")
+                val imagePrompt = extractJsonValue(aiContent, "image_prompt")
+
+                if (personality.isNotEmpty()) _personality.value = personality
+                if (backstory.isNotEmpty()) _backstory.value = backstory
+
+                if (imagePrompt.isNotEmpty()) {
+                    // 3. 图片生成：直接用中文 Prompt
+                    _statusMessage.value = "正在绘制头像(中文指令)..."
+
+                    val imageResponse = api.generateImage(
+                        authorization = "Bearer ${NetworkModule.API_KEY}",
+                        request = ImageGenerationRequest(
+                            model = NetworkModule.CV_ENDPOINT_ID,
+                            prompt = imagePrompt // 直接传中文
+                        )
+                    )
+
+                    val url = imageResponse.data.firstOrNull()?.url
+                    if (url != null) {
+                        _avatarPath.value = url
+                        _statusMessage.value = "生成完成！"
+                    } else {
+                        _statusMessage.value = "生图接口返回空数据"
+                    }
                 } else {
-                    // 如果 AI 没按格式返回，就全填到背景里
-                    _backstory.value = aiContent
+                    _statusMessage.value = "AI未返回画面描述，仅生成文本"
                 }
 
             } catch (e: Exception) {
-                Log.e("PersonaCreateViewModel", "AI 生成失败", e)
-                _backstory.value = "AI 连接失败: ${e.message}。请检查网络或 Key。"
+                Log.e("PersonaCreate", "Error", e)
+                _statusMessage.value = "出错: ${e.message}"
             } finally {
-                _isLoading.value = false // 结束加载
+                _isLoading.value = false
             }
         }
     }
 
-    /**
-     * 保存 Persona 的逻辑
-     */
+    // 🛠️ 正则提取工具：哪怕 AI 返回格式再乱，只要有 "key": "value" 就能抓出来
+    private fun extractJsonValue(json: String, key: String): String {
+        try {
+            // 匹配 "key": "..." 或 "key" : "..."，支持换行
+            val regex = "\"$key\"\\s*:\\s*\"(.*?)\"".toRegex(RegexOption.DOT_MATCHES_ALL)
+            val matchResult = regex.find(json)
+            return matchResult?.groupValues?.get(1)?.trim() ?: ""
+        } catch (e: Exception) {
+            return ""
+        }
+    }
+
     fun savePersona(onSuccess: () -> Unit) {
-        if (_name.value.isBlank() || _personality.value.isBlank()) return
+        if (_name.value.isBlank()) return
+
+        val finalUrl = if (_avatarPath.value.isNotEmpty()) _avatarPath.value else "https://picsum.photos/200"
 
         val newPersona = Persona(
             id = UUID.randomUUID().toString(),
             name = _name.value,
             personality = _personality.value,
             backstory = _backstory.value,
-            avatarUrl = "https://picsum.photos/seed/${UUID.randomUUID()}/200",
+            avatarUrl = finalUrl,
             creatorId = "local_user"
         )
 
-        // ✅ 关键修改：启动协程来执行数据库操作
         viewModelScope.launch {
             repository.addPersona(newPersona)
-            // 保存完之后，再回调通知 UI 跳转
             onSuccess()
         }
     }
