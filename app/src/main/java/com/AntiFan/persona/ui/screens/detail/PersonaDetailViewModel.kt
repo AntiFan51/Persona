@@ -49,9 +49,7 @@ class PersonaDetailViewModel @Inject constructor(
         _postSuccess.value = false
     }
 
-    /**
-     * 🔥 旗舰版发帖：图文并茂
-     */
+    // --- 发帖逻辑 (保持不变) ---
     fun triggerPersonaPost() {
         val currentPersona = _persona.value ?: return
         if (_isPosting.value) return
@@ -59,70 +57,47 @@ class PersonaDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isPosting.value = true
             try {
-                // 1. 构造 Prompt：要求 JSON 格式，包含文案和配图灵感
                 val prompt = """
                     你现在是${currentPersona.name}。
                     性格：${currentPersona.personality}。
-                    
                     任务：发一条带配图的朋友圈/动态。
-                    
-                    请返回标准 JSON 格式（不要 Markdown，不要编号）：
-                    {
-                        "content": "这里写文案，100字以内，符合人设语气",
-                        "image_prompt": "这里写配图的【中文】画面描述，描述场景、光影、氛围，用于AI绘画"
-                    }
+                    请返回标准 JSON 格式：
+                    {"content": "文案", "image_prompt": "中文配图描述"}
                 """.trimIndent()
 
-                // 2. 调用文本模型
                 val request = ChatRequest(
                     model = NetworkModule.ENDPOINT_ID,
                     messages = listOf(ChatMessage(role = "user", content = prompt))
                 )
-
                 val response = api.chatCompletions(
                     authorization = "Bearer ${NetworkModule.API_KEY}",
                     request = request
                 )
-
                 val aiRaw = response.choices.firstOrNull()?.message?.content ?: ""
 
-                // 3. 解析 JSON
                 val content = extractJsonValue(aiRaw, "content")
                 val imagePrompt = extractJsonValue(aiRaw, "image_prompt")
 
                 var finalImageUrl: String? = null
-
-                // 4. 如果有画面描述，调用生图模型
                 if (imagePrompt.isNotBlank()) {
                     try {
-                        val imageReq = ImageGenerationRequest(
-                            model = NetworkModule.CV_ENDPOINT_ID,
-                            prompt = imagePrompt
-                        )
                         val imageResp = api.generateImage(
                             authorization = "Bearer ${NetworkModule.API_KEY}",
-                            request = imageReq
+                            request = ImageGenerationRequest(model = NetworkModule.CV_ENDPOINT_ID, prompt = imagePrompt)
                         )
                         finalImageUrl = imageResp.data.firstOrNull()?.url
-                    } catch (e: Exception) {
-                        e.printStackTrace() // 生图失败不影响发帖，只是没图而已
-                    }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
-
-                // 5. 存入数据库 (content 不能为空，如果解析失败就用原始返回兜底)
-                val finalContent = if (content.isNotBlank()) content else aiRaw
 
                 val newPost = Post(
                     id = UUID.randomUUID().toString(),
                     authorId = currentPersona.id,
-                    content = finalContent,
-                    imageUrl = finalImageUrl, // ✅ 存入图片 URL
+                    content = if (content.isNotBlank()) content else aiRaw,
+                    imageUrl = finalImageUrl,
                     likeCount = 0
                 )
                 repository.publishPost(newPost)
-
                 _postSuccess.value = true
-
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -131,14 +106,21 @@ class PersonaDetailViewModel @Inject constructor(
         }
     }
 
-    // JSON 提取工具
     private fun extractJsonValue(json: String, key: String): String {
-        try {
+        return try {
             val regex = "\"$key\"\\s*:\\s*\"(.*?)\"".toRegex(RegexOption.DOT_MATCHES_ALL)
-            val matchResult = regex.find(json)
-            return matchResult?.groupValues?.get(1)?.trim() ?: ""
-        } catch (e: Exception) {
-            return ""
+            regex.find(json)?.groupValues?.get(1)?.trim() ?: ""
+        } catch (e: Exception) { "" }
+    }
+
+    // ✅ 新增：删除当前角色
+    fun deletePersona(onDeleted: () -> Unit) {
+        val currentId = _persona.value?.id ?: return
+        viewModelScope.launch {
+            // 执行级联删除
+            repository.deletePersonaRecursively(currentId)
+            // 回调通知 UI 跳转
+            onDeleted()
         }
     }
 }

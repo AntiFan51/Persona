@@ -49,4 +49,10 @@ class PersonaRepository @Inject constructor(
     override suspend fun publishPost(post: Post) {
         postDao.insertPost(post)
     }
+    override suspend fun deletePersonaRecursively(personaId: String) {
+        // 1. 先删该角色发的帖子
+        postDao.deletePostsByAuthor(personaId)
+        // 2. 再删角色本身
+        personaDao.deletePersonaById(personaId)
+    }
 }

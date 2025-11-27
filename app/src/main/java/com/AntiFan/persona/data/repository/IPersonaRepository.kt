@@ -20,4 +20,6 @@ interface IPersonaRepository {
 
     // ✅ 新增：更新角色设定 (共生进化)
     suspend fun updatePersonaDetails(id: String, personality: String, backstory: String)
+
+    suspend fun deletePersonaRecursively(personaId: String)
 }

@@ -27,4 +27,8 @@ interface PersonaDao {
     // ✅ 新增：进化！更新角色的核心设定 (性格 + 背景)
     @Query("UPDATE personas SET personality = :personality, backstory = :backstory WHERE id = :id")
     suspend fun updatePersonaDetails(id: String, personality: String, backstory: String)
+
+    @Query("DELETE FROM personas WHERE id = :id")
+    suspend fun deletePersonaById(id: String)
+
 }

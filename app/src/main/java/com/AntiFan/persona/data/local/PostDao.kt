@@ -28,4 +28,7 @@ interface PostDao {
     // ✅ 新增：点赞状态更新
     @Query("UPDATE posts SET isLiked = :isLiked, likeCount = likeCount + :delta WHERE id = :id")
     suspend fun updateLikeStatus(id: String, isLiked: Boolean, delta: Int)
+
+    @Query("DELETE FROM posts WHERE authorId = :authorId")
+    suspend fun deletePostsByAuthor(authorId: String)
 }

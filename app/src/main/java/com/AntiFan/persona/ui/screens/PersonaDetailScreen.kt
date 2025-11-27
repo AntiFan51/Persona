@@ -5,14 +5,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit // 用个编辑图标表示发帖
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete // 垃圾桶图标
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,17 +31,48 @@ fun PersonaDetailScreen(
     viewModel: PersonaDetailViewModel = hiltViewModel()
 ) {
     val persona by viewModel.persona.collectAsState()
-    val isPosting by viewModel.isPosting.collectAsState() // 监听是否正在生成
-    val postSuccess by viewModel.postSuccess.collectAsState() // 监听是否成功
+    val isPosting by viewModel.isPosting.collectAsState()
+    val postSuccess by viewModel.postSuccess.collectAsState()
+
+    // ✅ 新增：控制删除确认弹窗的显示状态
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
-    // 监听发帖成功事件
     LaunchedEffect(postSuccess) {
         if (postSuccess) {
-            Toast.makeText(context, "动态发布成功！已同步到广场", Toast.LENGTH_SHORT).show()
-            viewModel.consumeSuccessEvent() // 消耗事件
+            Toast.makeText(context, "动态发布成功！", Toast.LENGTH_SHORT).show()
+            viewModel.consumeSuccessEvent()
         }
+    }
+
+    // ✅ 删除确认弹窗
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("确认删除？") },
+            text = { Text("删除后，该角色及其发布的所有动态都将消失，且无法恢复。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        // 调用 ViewModel 删除，成功后返回上一页
+                        viewModel.deletePersona {
+                            Toast.makeText(context, "角色已删除", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -52,22 +81,29 @@ fun PersonaDetailScreen(
                 title = { Text("角色详情") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                // ✅ 新增：右上角的发帖按钮
                 actions = {
+                    // 1. 发帖按钮 (Loading 时转圈)
                     if (isPosting) {
-                        // 如果正在生成，显示转圈圈
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp).padding(end = 16.dp),
                             strokeWidth = 2.dp
                         )
                     } else {
-                        // 否则显示按钮
                         IconButton(onClick = { viewModel.triggerPersonaPost() }) {
-                            Icon(Icons.Default.Edit, contentDescription = "让TA发帖")
+                            Icon(Icons.Default.Edit, contentDescription = "发帖")
                         }
+                    }
+
+                    // ✅ 2. 新增：删除按钮
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.error // 红色警告色
+                        )
                     }
                 }
             )
@@ -100,9 +136,7 @@ fun PersonaDetailScreen(
                     Image(
                         painter = rememberAsyncImagePainter(p.avatarUrl),
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape),
+                        modifier = Modifier.size(120.dp).clip(CircleShape),
                         contentScale = ContentScale.Crop
                     )
                     Spacer(modifier = Modifier.height(24.dp))
@@ -117,14 +151,6 @@ fun PersonaDetailScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                     Text(text = "背景故事", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(text = p.backstory, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
-
-                    // 提示文字
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = "💡 点击右上角图标，可以让 TA 发布一条动态哦",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             } ?: run {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
