@@ -19,11 +19,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import com.AntiFan.persona.data.manager.UserManager
 
 @HiltViewModel
 class PersonaDetailViewModel @Inject constructor(
     private val repository: IPersonaRepository,
     private val api: VolcEngineApi,
+    private val userManager: UserManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -41,6 +43,27 @@ class PersonaDetailViewModel @Inject constructor(
         if (personaId != null) {
             viewModelScope.launch {
                 _persona.value = repository.getPersonaById(personaId)
+            }
+        }
+    }
+
+    private val _isOwner = MutableStateFlow(false)
+    val isOwner: StateFlow<Boolean> = _isOwner.asStateFlow()
+
+    init {
+        val personaId: String? = savedStateHandle.get(AppDestinations.PERSONA_ID_KEY)
+        if (personaId != null) {
+            viewModelScope.launch {
+                val p = repository.getPersonaById(personaId)
+                _persona.value = p
+
+                // ✅ 2. 权限判断逻辑
+                // 如果角色的 creatorId 等于 当前登录用户的 ID，那就是主人
+                // 注意：兼容旧数据 "local_user"，假设 user_1 继承旧数据
+                val currentUid = userManager.getCurrentUserId()
+                if (p != null) {
+                    _isOwner.value = (p.creatorId == currentUid) || (p.creatorId == "local_user" && currentUid == "user_1")
+                }
             }
         }
     }

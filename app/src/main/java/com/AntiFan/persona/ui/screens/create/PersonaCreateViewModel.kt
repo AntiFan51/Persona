@@ -17,11 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import com.AntiFan.persona.data.manager.UserManager
 
 @HiltViewModel
 class PersonaCreateViewModel @Inject constructor(
     private val repository: IPersonaRepository,
-    private val api: VolcEngineApi
+    private val api: VolcEngineApi,
+    private val userManager: UserManager
 ) : ViewModel() {
 
     private val _name = MutableStateFlow("")
@@ -149,7 +151,7 @@ class PersonaCreateViewModel @Inject constructor(
             personality = _personality.value,
             backstory = _backstory.value,
             avatarUrl = finalUrl,
-            creatorId = "local_user"
+            creatorId = userManager.getCurrentUserId()
         )
 
         viewModelScope.launch {
