@@ -10,18 +10,28 @@ import androidx.compose.ui.Modifier
 import com.AntiFan.persona.ui.AppNavigation // <-- 确保导入 AppNavigation
 import com.AntiFan.persona.ui.theme.PersonaTheme
 import dagger.hilt.android.AndroidEntryPoint
+import com.AntiFan.persona.data.DataInitializer
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    // ✅ 注入初始化器
+    @Inject
+    lateinit var dataInitializer: DataInitializer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ 触发初始化检查
+        dataInitializer.initData()
+
         setContent {
             PersonaTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 调用 AppNavigation 作为应用的唯一入口
                     AppNavigation()
                 }
             }
