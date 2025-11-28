@@ -26,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.AntiFan.persona.data.model.UiMessage
+import com.AntiFan.persona.ui.components.TypewriterText // ✅ 导入刚才写的组件
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,31 +34,26 @@ fun ChatScreen(
     navController: NavController,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
-    // 1. 监听 ViewModel 的各种状态
     val currentPersona by viewModel.currentPersona.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val isTyping by viewModel.isTyping.collectAsState()
-
     val isEvolving by viewModel.isEvolving.collectAsState()
-    // ✅ 修改：监听文本类型的消息提示 (包含成功或失败信息)
     val toastMessage by viewModel.toastMessage.collectAsState()
 
     val context = LocalContext.current
     val listState = rememberLazyListState()
 
-    // 2. 消息自动滚动到底部
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            listState.animateScrollToItem(messages.size) // 滚到底部
         }
     }
 
-    // 3. ✅ 修改：处理 Toast 提示
     LaunchedEffect(toastMessage) {
         toastMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            viewModel.clearToastMessage() // 显示完后清除，防止旋转屏幕重复显示
+            viewModel.clearToastMessage()
         }
     }
 
@@ -77,27 +73,19 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        // 使用 AutoMirrored 图标以支持 RTL 布局
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    // ✅ 右上角：进化按钮逻辑
                     if (isEvolving) {
-                        // 进化中：显示转圈
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp).padding(end = 16.dp),
                             strokeWidth = 2.dp
                         )
                     } else {
-                        // 闲置中：显示星星按钮 (仅当角色加载成功时)
                         if (currentPersona != null) {
                             IconButton(onClick = { viewModel.triggerEvolution() }) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    contentDescription = "共生进化",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                                Icon(Icons.Default.Star, contentDescription = "共生进化", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -109,7 +97,6 @@ fun ChatScreen(
                 text = inputText,
                 onTextChanged = viewModel::onInputChanged,
                 onSendClick = viewModel::sendMessage,
-                // 正在打字或正在进化时，禁止输入
                 isEnabled = !isTyping && !isEvolving
             )
         }
@@ -127,18 +114,29 @@ fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 顶部提示
                 item {
                     Text(
                         text = "💡 提示：聊一会后，点击右上角 ⭐ 按钮，可让 TA 记住聊天内容并更新设定。",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                        modifier = Modifier.padding(bottom = 8.dp, start = 16.dp)
                     )
                 }
 
-                items(messages) { msg ->
-                    MessageBubble(message = msg)
+                // ✅ 列表渲染
+                items(
+                    items = messages,
+                    key = { it.id } // 关键：唯一 Key 确保动画重置
+                ) { msg ->
+                    // 判断是否是列表里的最后一条
+                    val isLastItem = msg == messages.last()
+                    // 只有【最后一条】且【是AI发的】才播放动画
+                    val shouldAnimate = isLastItem && !msg.isUser
+
+                    MessageBubble(
+                        message = msg,
+                        animate = shouldAnimate
+                    )
                 }
 
                 if (isTyping) {
@@ -157,7 +155,10 @@ fun ChatScreen(
 }
 
 @Composable
-fun MessageBubble(message: UiMessage) {
+fun MessageBubble(
+    message: UiMessage,
+    animate: Boolean // 是否播放动画
+) {
     val isUser = message.isUser
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -173,11 +174,22 @@ fun MessageBubble(message: UiMessage) {
             ),
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(12.dp),
-                color = if (isUser) Color.White else Color.Black
-            )
+            Box(modifier = Modifier.padding(12.dp)) {
+                if (isUser) {
+                    // 用户消息：直接显示
+                    Text(
+                        text = message.content,
+                        color = Color.White
+                    )
+                } else {
+                    // AI 消息：使用打字机组件
+                    TypewriterText(
+                        text = message.content,
+                        animate = animate,
+                        color = Color.Black
+                    )
+                }
+            }
         }
     }
 }
@@ -215,7 +227,6 @@ fun ChatInputArea(
                 enabled = isEnabled && text.isNotBlank()
             ) {
                 Icon(
-                    // 使用 AutoMirrored 图标
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Send",
                     tint = if (isEnabled) MaterialTheme.colorScheme.primary else Color.Gray
