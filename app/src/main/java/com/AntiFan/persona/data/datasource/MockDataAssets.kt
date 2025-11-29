@@ -52,7 +52,6 @@ object MockDataAssets {
             content = "刚刚看了一下火星的票价，还是太贵了。我们需要把成本降低 1000 倍！🚀 #Mars #Future",
             imageUrl = "https://image.pollinations.ai/prompt/Mars%20colony%20spacex%20rocket%20landing?width=512&height=512&nologo=true",
             likeCount = 4200,
-            isLiked = true // 假装你已经点赞了
         ),
 
         Post(

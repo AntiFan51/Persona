@@ -41,7 +41,9 @@ fun SocialScreen(
 
     // 自动刷新
     LaunchedEffect(Unit) {
-        viewModel.loadFeed()
+
+            viewModel.refresh() // ✅ 改成调用 refresh()
+
     }
 
     Scaffold { paddingValues ->
@@ -66,7 +68,8 @@ fun SocialScreen(
                 items(feed) { item ->
                     PostItem(
                         item = item,
-                        onLikeClick = { viewModel.toggleLike(item.post) },
+                        // ✅ 修复：这里传入整个 item (PostWithAuthor)
+                        onLikeClick = { viewModel.toggleLike(item) },
                         onFollowClick = { viewModel.toggleFollow(item.post.authorId, item.authorIsFollowed) }
                     )
                 }
@@ -86,7 +89,7 @@ fun PostItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // 1. 头部 (头像 + 名字)
+            // 头部
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(
                     model = item.authorAvatar,
@@ -119,15 +122,14 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. 正文
+            // 正文
             Text(
                 text = item.post.content,
                 style = MaterialTheme.typography.bodyLarge,
                 lineHeight = 24.sp
             )
 
-            // ✅ 3. 配图 (如果有的话)
-            // 核心改动：检查 imageUrl，不为空则显示
+            // 配图
             if (!item.post.imageUrl.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
@@ -135,7 +137,7 @@ fun PostItem(
                     contentDescription = "Post Image",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 300.dp) // 限制最大高度，防止图太长
+                        .heightIn(max = 300.dp)
                         .clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop
                 )
@@ -143,7 +145,7 @@ fun PostItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. 底部互动
+            // 底部互动
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -151,10 +153,11 @@ fun PostItem(
                     .clickable { onLikeClick() }
                     .padding(4.dp)
             ) {
+                // ✅ 修复：判断状态改用 item.isLiked
                 Icon(
-                    imageVector = if (item.post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    imageVector = if (item.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = null,
-                    tint = if (item.post.isLiked) Color(0xFFFF5252) else Color.Gray,
+                    tint = if (item.isLiked) Color(0xFFFF5252) else Color.Gray,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))

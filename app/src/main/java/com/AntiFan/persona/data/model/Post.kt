@@ -12,8 +12,5 @@ data class Post(
     val content: String,
     val imageUrl: String? = null,
     val likeCount: Int = 0,
-    val timestamp: Long = System.currentTimeMillis(),
-
-    // ✅ 新增：是否已点赞
-    val isLiked: Boolean = false
+    val timestamp: Long = System.currentTimeMillis()
 )

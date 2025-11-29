@@ -12,8 +12,5 @@ data class Persona(
     val avatarUrl: String,
     val personality: String,
     val backstory: String,
-    val creatorId: String = "local_user",
-
-    // ✅ 新增：是否已关注
-    val isFollowed: Boolean = false
+    val creatorId: String = "local_user"
 )

@@ -1,7 +1,6 @@
 package com.AntiFan.persona.data.model
 
 import androidx.room.Embedded
-import androidx.room.Relation
 
 data class PostWithAuthor(
     @Embedded val post: Post,
@@ -9,6 +8,7 @@ data class PostWithAuthor(
     val authorName: String,
     val authorAvatar: String,
 
-    // ✅ 新增：映射作者的关注状态
+    // ✅ 这两个字段现在通过 SQL 动态计算 (0=false, 1=true)
+    val isLiked: Boolean,
     val authorIsFollowed: Boolean
 )
